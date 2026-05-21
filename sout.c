@@ -34,7 +34,7 @@ void _putchar(char character) {
     DWORD written;
     WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), &character, 1, &written, NULL);
 #else
-    int total_written = write(1, &character, 1);
+    write(1, &character, 1);
 #endif
 }
 

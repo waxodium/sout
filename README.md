@@ -7,7 +7,7 @@ sout is a lightweight, dependency-free C library built around small, reusable ut
 | Header | Description |
 |---|---|
 | [sout_printout.h](./sout_printout.h) | Formatted & TUI output utilities. |
-| [sout_text.h](./sout_text.h) | Text & Strings regex|
+| [sout_text.h](./sout_text.h) | Text & Strings |
 
 Sout is best for optimization development on systems with POSIX or Win32.
 
@@ -21,11 +21,9 @@ Sout is best for optimization development on systems with POSIX or Win32.
 git clone https://github.com/waxodium/sout/
 ```
 
-For convenience, sout also ships with a minified single-header distribution containing the entire library at `dist/sout.min.h` (Minified) and `dist/sout.h` (Compacted).
+For convenience, sout also ships with a minified single-header distribution containing the entire library `dist/sout.h`.
 
 ```c
-#include "sout.min.h"
-// or
 #include "sout.h"
 ```
 

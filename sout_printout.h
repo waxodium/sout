@@ -38,11 +38,16 @@ typedef struct {
     int prefix;
     int zero_pad;
     int width;
+
+    int precision;
+    int has_precision;
+
     char specifier;
 } FormatTable;
 
 void write_chunk(const char *buf, int length) {
-    if (length <= 0) return;
+    if (length <= 0)
+        return;
 
 #if defined(_WIN32)
     DWORD written;
@@ -53,7 +58,6 @@ void write_chunk(const char *buf, int length) {
 }
 
 void flush(OutputBuffer *buffer) {
-
     if (buffer->position > 0) {
         write_chunk(buffer->data, buffer->position);
         buffer->position = 0;
@@ -67,10 +71,8 @@ void addchar(OutputBuffer *buffer, char c) {
     buffer->data[buffer->position++] = c;
 }
 
-
-FormatTable parse_format(const char **cursor){
+FormatTable parse_format(const char **cursor, va_list *arguments) {
     FormatTable format = {0};
-
     (*cursor)++;
 
     while (**cursor == '#' || **cursor == '0') {
@@ -87,6 +89,28 @@ FormatTable parse_format(const char **cursor){
         (*cursor)++;
     }
 
+    if (**cursor == '.') {
+        format.has_precision = 1;
+
+        (*cursor)++;
+
+        if (**cursor == '*') {
+            format.precision = va_arg(*arguments, int);
+
+            if (format.precision < 0) {
+                format.has_precision = 0;
+                format.precision = 0;
+            }
+
+            (*cursor)++;
+        } else {
+            while (**cursor >= '0' && **cursor <= '9') {
+                format.precision = format.precision * 10 + (**cursor - '0');
+                (*cursor)++;
+            }
+        }
+    }
+
     format.specifier = **cursor;
 
     return format;
@@ -101,11 +125,13 @@ void soutf(const char *format, ...) {
     va_start(arguments, format);
 
     for (const char *cursor = format; *cursor != '\0'; cursor++) {
+
         if (stream.position >= 1023)
             flush(&stream);
 
         if (*cursor == '%' && *(cursor + 1) != '\0') {
-            FormatTable spec = parse_format(&cursor);
+
+            FormatTable spec = parse_format(&cursor, &arguments);
 
             switch (spec.specifier) {
                 case 's': {
@@ -114,24 +140,42 @@ void soutf(const char *format, ...) {
                     if (text == NULL)
                         text = "(null)";
 
-                    while (*text != '\0')
-                        addchar(&stream, *text++);
+                    int length = 0;
+
+                    if (spec.has_precision) {
+
+                        while (text[length] != '\0' && length < spec.precision) {
+                            length++;
+                        }
+
+                    } else {
+
+                        while (text[length] != '\0')
+                            length++;
+                    }
+
+                    for (int i = 0; i < length; i++)
+                        addchar(&stream, text[i]);
 
                     break;
                 }
-
                 case 'd': {
                     int number = va_arg(arguments, int);
+
                     char digits[sizeof(unsigned int) * CHAR_BIT];
+
                     int p = 0;
                     unsigned int num;
 
                     if (number == 0) {
+
                         addchar(&stream, '0');
+
                     } else {
                         if (number < 0) {
                             addchar(&stream, '-');
                             num = (unsigned int)(-(number + 1)) + 1;
+
                         } else {
                             num = (unsigned int)number;
                         }
@@ -152,17 +196,17 @@ void soutf(const char *format, ...) {
                     unsigned int number = va_arg(arguments, unsigned int);
                     char digits[sizeof(unsigned int) * CHAR_BIT];
                     int p = 0;
-
+                    
                     if (number == 0) {
                         addchar(&stream, '0');
                     } else {
+
                         while (number > 0) {
                             digits[p++] = (number % 10) + '0';
                             number /= 10;
                         }
 
-                        while (p > 0)
-                            addchar(&stream, digits[--p]);
+                        while (p > 0) addchar(&stream, digits[--p]);
                     }
 
                     break;
@@ -178,15 +222,20 @@ void soutf(const char *format, ...) {
                     if (number == 0) {
                         digits[p++] = '0';
                     } else {
+                        
                         while (number > 0) {
                             unsigned int digit = number % 16;
 
-                            if (digit < 10)
+                            if (digit < 10) {
                                 digits[p++] = '0' + digit;
-                            else if (spec.specifier == 'x')
+                            } else if (spec.specifier == 'x') {
+
                                 digits[p++] = 'a' + (digit - 10);
-                            else
+
+                            } else {
+
                                 digits[p++] = 'A' + (digit - 10);
+                            }
 
                             number /= 16;
                         }
@@ -195,10 +244,10 @@ void soutf(const char *format, ...) {
                     int prefix = spec.prefix && original != 0 ? 2 : 0;
                     int padding = spec.width - p - prefix;
 
-                    if (padding < 0)
-                        padding = 0;
+                    if (padding < 0) padding = 0;
 
                     if (spec.zero_pad) {
+
                         if (prefix) {
                             addchar(&stream, '0');
                             addchar(&stream, spec.specifier);
@@ -206,7 +255,9 @@ void soutf(const char *format, ...) {
 
                         while (padding-- > 0)
                             addchar(&stream, '0');
+
                     } else {
+
                         while (padding-- > 0)
                             addchar(&stream, ' ');
 
@@ -221,7 +272,7 @@ void soutf(const char *format, ...) {
 
                     break;
                 }
-
+ 
                 case 'c': {
                     addchar(&stream, (char)va_arg(arguments, int));
                     break;
@@ -239,15 +290,18 @@ void soutf(const char *format, ...) {
                 }
             }
         } else {
+
             addchar(&stream, *cursor);
         }
     }
 
     flush(&stream);
+
     va_end(arguments);
 }
 
 
 // &&&&&& Header &&&&&&
+
 void write_chunk(const char *buf, int length);
 void soutf(const char *format, ...);
